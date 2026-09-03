@@ -92,9 +92,10 @@ function RefractionCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const opticsDisabled = window.matchMedia('(max-width: 700px), (pointer: coarse), (prefers-reduced-motion: reduce)').matches;
+    if (opticsDisabled) return;
     const context = canvas.getContext('2d');
     if (!context) return;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let pointerClientX = window.innerWidth * 0.16;
     let pointerClientY = window.innerHeight * 0.58;
     let sourceX = pointerClientX;
@@ -122,7 +123,7 @@ function RefractionCanvas() {
 
       const targetX = Math.max(0, Math.min(width, pointerClientX - canvasRect.left));
       const targetY = Math.max(0, Math.min(height, pointerClientY - canvasRect.top));
-      const easing = reducedMotion ? 1 : 0.15;
+      const easing = 0.15;
       sourceX += (targetX - sourceX) * easing;
       sourceY += (targetY - sourceY) * easing;
 
@@ -240,10 +241,11 @@ function OpticalNarrative() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const opticsDisabled = window.matchMedia('(max-width: 700px), (pointer: coarse), (prefers-reduced-motion: reduce)').matches;
+    if (!canvas || opticsDisabled) return;
     const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
+    if (!context) return;
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let pointerTargetX = window.innerWidth * 0.5;
     let pointerTargetY = window.innerHeight * 0.42;
     let pointerX = pointerTargetX;
@@ -287,10 +289,10 @@ function OpticalNarrative() {
 
       const state = active.section.dataset.opticalState || '';
       const dark = active.section.dataset.opticalTheme === 'dark';
-      const easing = reducedMotion ? 1 : 0.14;
+      const easing = 0.14;
       pointerX += (pointerTargetX - pointerX) * easing;
       pointerY += (pointerTargetY - pointerY) * easing;
-      rayEnergy += (rayEnergyTarget - rayEnergy) * (reducedMotion ? 1 : .11);
+      rayEnergy += (rayEnergyTarget - rayEnergy) * .11;
 
       const rawTargets = Array.from(active.section.querySelectorAll<HTMLElement>('[data-ray-target]'));
       const targets = rawTargets

@@ -465,12 +465,11 @@ body:has(.site-header .nav-cta:hover) .hero-logo { opacity: .23; transform: rota
   .hero-content { min-height: 100svh; padding-block: 110px 70px; justify-content: flex-end; }
   .hero h1 { font-size: clamp(48px, 14.5vw, 74px); }
   .hero-copy { font-size: 16px; }
-  .hero-canvas { inset-block-start: 68px; height: calc(100% - 68px); opacity: .7; }
+  .hero-canvas, .optical-narrative { display: none; }
   .hero-logo { top: 16%; right: 6%; width: 43vw; }
   .final-logo { top: 13%; right: 6%; width: 42vw; opacity: .11; }
   .hero-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
   .hero-index { display: none; }
-  .optical-narrative { opacity: .58; }
   .refraction-band { min-height: 104px; grid-template-columns: 1fr; gap: 10px; }
   .refraction-band .spectrum { order: 2; }
   .refraction-band span:last-child { order: 3; text-align: right; }
@@ -509,6 +508,7 @@ body:has(.site-header .nav-cta:hover) .hero-logo { opacity: .23; transform: rota
 }
 
 @media (hover: none), (pointer: coarse) {
+  .hero-canvas, .optical-narrative { display: none; }
   .process-list li > svg { opacity: .34; filter: none; transform: none; }
 }
 
@@ -521,8 +521,7 @@ body:has(.site-header .nav-cta:hover) .hero-logo { opacity: .23; transform: rota
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .hero-canvas { display: none; }
-  .optical-narrative { opacity: .52; }
+  .hero-canvas, .optical-narrative { display: none; }
   .nav, .hero-content > *, .hero-index, .refraction-band span, .refraction-band .spectrum, .brief, .brief-header, .brief-form fieldset, .brief-success { animation: none; opacity: 1; transform: none; filter: none; }
   .hero-logo { animation: none; opacity: .14; filter: none; }
   .hero-logo img { animation: none; }
