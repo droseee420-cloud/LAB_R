@@ -11,12 +11,12 @@ const situations = [
 ];
 
 const process = [
-  ['Receive', 'We read the situation as you describe it.'],
-  ['Observe', 'We examine the available product and material.'],
-  ['Reply', 'We respond the same day with first observations.'],
-  ['Audit', 'We agree on the depth of further analysis.'],
-  ['Model', 'We develop routes and define what happens first.'],
-  ['Build', 'We take the selected route into implementation.'],
+  ['context', 'Context received', 'We read the situation as you describe it.'],
+  ['review', 'First review', 'We examine the available product and material.'],
+  ['response', 'Initial response', 'We reply the same day with our first observations.'],
+  ['scope', 'Scope agreed', 'Together, we define the depth of further analysis.'],
+  ['route', 'Route selected', 'We compare the options and agree on what happens first.'],
+  ['start', 'Work begins', 'The selected route moves into implementation.'],
 ];
 
 const method = [
@@ -48,6 +48,17 @@ const MAX_BRIEF_FILES = 6;
 const MAX_BRIEF_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_BRIEF_TOTAL_SIZE = 30 * 1024 * 1024;
 const blockedBriefExtensions = /\.(exe|msi|bat|cmd|com|scr|ps1|jar)$/i;
+
+function ProcessIcon({ type }: { type: string }) {
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.35, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
+  if (type === 'context') return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M4 5.5h16v12H4z" /><path d="M4 13h4l2 3h4l2-3h4" /></svg>;
+  if (type === 'review') return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M2.5 12s3.6-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.6 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.6" /></svg>;
+  if (type === 'response') return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M4 5h16v11H9l-5 4V5Z" /><path d="M8 9h8M8 12h5" /></svg>;
+  if (type === 'scope') return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M8 20H4v-4" /><circle cx="12" cy="12" r="3" /></svg>;
+  if (type === 'route') return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><circle cx="5" cy="17" r="1.7" /><circle cx="19" cy="7" r="1.7" /><path d="M6.7 17c5.5 0 3.8-10 10.6-10M14 5l3.3 2L15 10" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M5 19 19 5M11 5h8v8" /><path d="M5 10v9h9" /></svg>;
+}
 
 type BriefDraft = {
   message: string;
@@ -458,14 +469,15 @@ function SiteHeader({ onOpenBrief }: SiteHeaderProps) {
     let frame = 0;
     const update = () => {
       frame = 0;
-      const targetLine = window.innerHeight * .34;
+      const headerBottom = document.querySelector<HTMLElement>('.site-header')?.getBoundingClientRect().bottom || 84;
+      const targetLine = Math.min(headerBottom + 24, window.innerHeight * .18);
       const sections = navigationSections
         .map((item) => ({ item, element: document.getElementById(item.id) }))
         .filter((entry): entry is { item: typeof navigationSections[number]; element: HTMLElement } => Boolean(entry.element));
-      const active = sections
-        .map((entry) => ({ ...entry, rect: entry.element.getBoundingClientRect() }))
-        .filter(({ rect }) => rect.bottom > 0 && rect.top < window.innerHeight)
-        .sort((a, b) => Math.abs((a.rect.top + Math.min(a.rect.height, window.innerHeight) * .28) - targetLine) - Math.abs((b.rect.top + Math.min(b.rect.height, window.innerHeight) * .28) - targetLine))[0];
+      const measured = sections.map((entry) => ({ ...entry, rect: entry.element.getBoundingClientRect() }));
+      const active = measured.find(({ rect }) => rect.top <= targetLine && rect.bottom > targetLine)
+        || measured.filter(({ rect }) => rect.top <= targetLine).at(-1)
+        || measured[0];
       if (active) setActiveId((current) => current === active.item.id ? current : active.item.id);
       const available = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const nextProgress = Math.min(1, Math.max(0, window.scrollY / available));
@@ -505,7 +517,7 @@ function SiteHeader({ onOpenBrief }: SiteHeaderProps) {
           <button className="nav-cta" type="button" onClick={onOpenBrief}>Start with the problem <span>↗</span></button>
         </div>
       </nav>
-      <span className="page-progress" aria-hidden="true" style={{ transform: `scaleX(${progress})` }} />
+      <span className="page-progress" aria-hidden="true" style={{ width: `${progress * 100}%` }} />
     </header>
   );
 }
@@ -861,8 +873,10 @@ export default function Home() {
               ['“We need an app.”', 'First, we validate what the app must change for the business and its users.'],
             ].map(([symptom, cause], index) => <article className="contrast-row" data-motion="item" data-ray-target data-ray-anchor="bottom-right" key={symptom}><span className="row-index">0{index + 1}</span><h3>{symptom}</h3><p>{cause}</p></article>)}
           </div>
-          <p className="large-statement" data-motion="statement">We do not prescribe before we understand.</p>
-          <button className="section-cta" data-motion="action" type="button" onClick={openBrief}>Show us the symptom <span>↗</span></button>
+          <div className="diagnosis-close">
+            <p className="large-statement" data-motion="statement">We do not prescribe before we understand.</p>
+            <button className="section-cta" data-motion="action" type="button" onClick={openBrief}>Describe the symptom <span>↗</span></button>
+          </div>
         </div>
       </section>
 
@@ -871,7 +885,7 @@ export default function Home() {
           <div className="section-heading"><p className="section-label" data-motion="label">02 / Any stage</p><h2 data-motion="heading">Bring the idea, the product or the problem.</h2></div>
           <p className="section-intro" data-motion="copy">You do not need to translate the situation into a service brief. Describe it as it is. We will structure the task.</p>
           <div className="situation-grid">
-            {situations.map(([title, copy], index) => <article className="situation-item" data-motion="item" data-ray-target data-ray-anchor="top-left" key={title}><span className="row-index">0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article>)}
+            {situations.map(([title, copy], index) => <article className="situation-item" data-motion="item" data-ray-target data-ray-anchor="top-left" tabIndex={0} key={title}><span className="row-index">0{index + 1}</span><div className="situation-content"><h3>{title}</h3><p>{copy}</p></div></article>)}
           </div>
           <p className="quiet-statement" data-motion="statement">If it belongs to a digital product, it belongs in the conversation.</p>
         </div>
@@ -882,7 +896,7 @@ export default function Home() {
           <div className="section-heading"><p className="section-label" data-motion="label">03 / What happens next</p><h2 data-motion="heading">We start working before we start selling.</h2></div>
           <p className="section-intro" data-motion="copy">Send the context, a link and any useful files. We review the material and reply the same day with our first observations.</p>
           <ol className="process-list">
-            {process.map(([title, copy], index) => <li data-motion="item" data-ray-target data-ray-anchor="bottom-right" key={title}><span className="row-index">0{index + 1}</span><h3>{title}</h3><p>{copy}</p></li>)}
+            {process.map(([type, title, copy], index) => <li data-motion="item" data-ray-target data-ray-anchor="bottom-right" key={title}><span className="row-index">0{index + 1}</span><ProcessIcon type={type} /><h3>{title}</h3><p>{copy}</p></li>)}
           </ol>
           <div className="process-close">
             <p className="process-note" data-motion="statement">No automated report. No prewritten diagnosis. A response from the team.</p>
@@ -943,15 +957,15 @@ export default function Home() {
         <div className="shell" data-reveal>
           <div className="section-heading"><p className="section-label" data-motion="label">07 / Experiments</p><h2 data-motion="heading">As experimental as the task needs.</h2></div>
           <div className="route-grid">
-            <article className={`route-card ${expandedRoute === 'proven' ? 'is-open' : ''}`} data-motion="item">
+            <article className={`route-card ${expandedRoute === 'proven' ? 'is-open' : ''}`} data-motion="item" data-ray-target data-ray-anchor="bottom-left">
               <button className="route-trigger" type="button" aria-expanded={expandedRoute === 'proven'} aria-controls="proven-route" onClick={() => setExpandedRoute(expandedRoute === 'proven' ? null : 'proven')}>
-                <div className="route-visual stable" data-ray-target data-ray-anchor="bottom-right" aria-hidden="true"><span /><span /><span /></div><p className="section-label">Proven route</p><h3>When certainty matters.</h3><p>Established patterns, reliable technology and controlled implementation for tasks where predictability is the priority.</p><span className="route-toggle">Explore the route <b>{expandedRoute === 'proven' ? '−' : '+'}</b></span>
+                <div className="route-visual stable" aria-hidden="true"><span /><span /><span /></div><p className="section-label">Proven route</p><h3>When certainty matters.</h3><p>Established patterns, reliable technology and controlled implementation for tasks where predictability is the priority.</p><span className="route-toggle">Explore the route <b>{expandedRoute === 'proven' ? '−' : '+'}</b></span>
               </button>
               <div className="route-detail" id="proven-route" aria-hidden={expandedRoute !== 'proven'}><div><p>Best for known tasks where delivery confidence matters more than novelty.</p><ul><li>Established interaction patterns</li><li>Controlled scope and implementation</li><li>Validation focused on fit and execution</li></ul></div></div>
             </article>
-            <article className={`route-card lab-route ${expandedRoute === 'lab' ? 'is-open' : ''}`} data-motion="item">
+            <article className={`route-card lab-route ${expandedRoute === 'lab' ? 'is-open' : ''}`} data-motion="item" data-ray-target data-ray-anchor="bottom-left">
               <button className="route-trigger" type="button" aria-expanded={expandedRoute === 'lab'} aria-controls="lab-route" onClick={() => setExpandedRoute(expandedRoute === 'lab' ? null : 'lab')}>
-                <div className="route-visual spectrum-route" data-ray-target data-ray-anchor="top-left" aria-hidden="true"><span /><span /><span /></div><p className="section-label">LAB route</p><h3>When advantage matters.</h3><p>New mechanics, interfaces, technologies and product hypotheses for tasks where a conventional solution is not enough.</p><span className="route-toggle">Explore the route <b>{expandedRoute === 'lab' ? '−' : '+'}</b></span>
+                <div className="route-visual spectrum-route" aria-hidden="true"><span /><span /><span /></div><p className="section-label">LAB route</p><h3>When advantage matters.</h3><p>New mechanics, interfaces, technologies and product hypotheses for tasks where a conventional solution is not enough.</p><span className="route-toggle">Explore the route <b>{expandedRoute === 'lab' ? '−' : '+'}</b></span>
               </button>
               <div className="route-detail" id="lab-route" aria-hidden={expandedRoute !== 'lab'}><div><p>Best when the advantage depends on an assumption that should be tested before full investment.</p><ul><li>One critical hypothesis at a time</li><li>Controlled prototype or experiment</li><li>Evidence before full implementation</li></ul></div></div>
             </article>
