@@ -36,3 +36,28 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# local agent prompts
+/prompt/
+
+# application secrets, private data and local tools
+!.env.example
+**/.venv/
+/.tools/
+/.data/
+/deploy.local.json
+/scripts/deploy.local.json
+**/*.local.json
+**/.next/
+**/next-env.d.ts
+**/playwright-report/
+**/test-results/
+/scripts/known_hosts
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.tsbuildinfo
+/playwright-report/
+/test-results/
+/releases/

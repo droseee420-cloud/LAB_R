@@ -1,0 +1,15 @@
+-r requirements.txt
+bcrypt==5.0.0
+cffi==2.1.1
+cryptography==50.0.1
+iniconfig==2.3.0
+invoke==3.0.3
+packaging==26.3
+paramiko==4.0.0
+pluggy==1.6.0
+pycparser==3.0
+Pygments==2.21.0
+PyNaCl==1.6.2
+pytest==8.4.2
+ruff==0.12.12
+PyYAML==6.0.3

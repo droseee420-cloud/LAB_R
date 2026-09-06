@@ -1,0 +1,39 @@
+name: Quick checks
+on:
+  pull_request:
+    paths: ['apps/**', 'scripts/**', 'tests/**', 'infra/**', 'package.json', 'pnpm-*', '.github/workflows/**', '.dockerignore']
+  push:
+    branches: [main]
+    paths: ['apps/**', 'scripts/**', 'tests/**', 'infra/**', 'package.json', 'pnpm-*', '.github/workflows/**', '.dockerignore']
+permissions: {contents: read}
+concurrency:
+  group: quick-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24.13.0'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '11.25.0'}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm build
+  api:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18.3-bookworm
+        env: {POSTGRES_USER: labtest, POSTGRES_PASSWORD: synthetic-ci-password, POSTGRES_DB: lab_test}
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U labtest -d lab_test" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://labtest:synthetic-ci-password@127.0.0.1:5432/lab_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - run: python -m pip install -r apps/api/requirements-dev.txt
+      - run: python -m ruff check apps/api scripts tests/tooling
+      - run: python -m pytest -c apps/api/pyproject.toml apps/api/tests tests/tooling -m 'not compose and not ssh' -q

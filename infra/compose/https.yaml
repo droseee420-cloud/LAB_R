@@ -1,0 +1,7 @@
+# Obtain a certificate first; see docs/operations/deployment.md. Mount read-only cert files.
+services:
+  proxy:
+    ports: ['${BIND_ADDRESS:-0.0.0.0}:443:8443']
+    volumes:
+      - ./infra/nginx/https.conf.template:/templates/nginx.conf:ro
+      - ${TLS_CERT_DIR:?Set TLS_CERT_DIR}:/certificates:ro

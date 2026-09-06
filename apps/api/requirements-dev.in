@@ -1,0 +1,4 @@
+-r requirements.in
+pytest==8.4.2
+ruff==0.12.12
+paramiko==4.0.0

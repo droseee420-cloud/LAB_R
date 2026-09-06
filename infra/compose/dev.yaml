@@ -1,0 +1,4 @@
+# Local PostgreSQL only: never use this override on an internet-facing server.
+services:
+  db:
+    ports: ['127.0.0.1:5432:5432']

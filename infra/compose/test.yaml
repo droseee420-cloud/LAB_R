@@ -1,0 +1,17 @@
+# Disposable full-test service. The canonical script recreates only the lab_test database.
+services:
+  api-test:
+    image: refraction-api-test:local
+    build: {context: ., dockerfile: infra/docker/api-test.Dockerfile}
+    environment:
+      TEST_POSTGRES_HOST: db
+      TEST_POSTGRES_DB: lab_test
+      TEST_POSTGRES_USER: ${POSTGRES_USER:-lab}
+      TEST_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    networks: [private]
+    depends_on: {db: {condition: service_healthy}}
+    read_only: true
+    tmpfs: ['/tmp:size=512m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"

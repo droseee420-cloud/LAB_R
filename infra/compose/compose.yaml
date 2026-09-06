@@ -1,0 +1,152 @@
+name: ${COMPOSE_PROJECT_NAME:-refraction}
+
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "5m", max-file: "3"}
+
+x-api-environment: &api-environment
+  POSTGRES_HOST: db
+  POSTGRES_DB: ${POSTGRES_DB:-lab}
+  POSTGRES_USER: ${POSTGRES_USER:-lab}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+  COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET}
+  PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}
+  HTTP_TEST_MODE: ${HTTP_TEST_MODE:-false}
+  COOKIE_DAYS: ${COOKIE_DAYS:-365}
+  RATE_LIMIT: ${RATE_LIMIT:-10}
+  RATE_WINDOW: ${RATE_WINDOW:-600}
+  TRUSTED_PROXY_CIDRS: ${APP_SUBNET:-172.30.80.0/24}
+  STORAGE_ROOT: /data/uploads
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+  ADMIN_ORIGIN: ${ADMIN_ORIGIN:-}
+  ADMIN_SESSION_HOURS: ${ADMIN_SESSION_HOURS:-12}
+  ADMIN_LOGIN_LIMIT: ${ADMIN_LOGIN_LIMIT:-6}
+
+services:
+  db:
+    image: postgres:18.3-bookworm
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lab}
+      POSTGRES_USER: ${POSTGRES_USER:-lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: [postgres:/var/lib/postgresql]
+    networks: [private]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+  migrate:
+    image: ${COMPOSE_PROJECT_NAME:-refraction}-api:${RELEASE_ID:-local}
+    build: {context: ., dockerfile: apps/api/Dockerfile}
+    environment: *api-environment
+    command: [python, -m, alembic, upgrade, head]
+    networks: [private]
+    depends_on: {db: {condition: service_healthy}}
+    restart: "no"
+    read_only: true
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+  api:
+    image: ${COMPOSE_PROJECT_NAME:-refraction}-api:${RELEASE_ID:-local}
+    build: {context: ., dockerfile: apps/api/Dockerfile}
+    environment: *api-environment
+    volumes: [uploads:/data/uploads]
+    networks: [private, app]
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp:size=256m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 40s
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+  frontend:
+    image: ${COMPOSE_PROJECT_NAME:-refraction}-frontend:${RELEASE_ID:-local}
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+      args: {PUBLIC_URL: '${PUBLIC_URL:?Set PUBLIC_URL}', APP_NAME: web}
+    networks: [app]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777', '/app/apps/web/.next/cache:uid=1000,gid=1000,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+  admin:
+    image: ${COMPOSE_PROJECT_NAME:-refraction}-admin:${RELEASE_ID:-local}
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+      args: {PUBLIC_URL: '${PUBLIC_URL:?Set PUBLIC_URL}', APP_NAME: admin, ADMIN_BASE_PATH: '${ADMIN_BASE_PATH-/admin}'}
+    environment: {ADMIN_BASE_PATH: '${ADMIN_BASE_PATH-/admin}'}
+    networks: [app]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777', '/app/apps/admin/.next/cache:uid=1000,gid=1000,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000'+(process.env.ADMIN_BASE_PATH||'/')).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+  proxy:
+    image: nginx:1.28.2-alpine
+    user: "101:101"
+    entrypoint: [/bin/sh, -c]
+    command:
+      - envsubst '$$PROXY_RATE $$PROXY_BURST $$ADMIN_PROXY_RATE $$ADMIN_PROXY_BURST $$ADMIN_HOST' < /templates/nginx.conf > /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+    environment:
+      PROXY_RATE: ${PROXY_RATE:-6r/m}
+      PROXY_BURST: ${PROXY_BURST:-6}
+      ADMIN_HOST: ${ADMIN_HOST:-admin.invalid}
+      ADMIN_PROXY_RATE: ${ADMIN_PROXY_RATE:-6r/m}
+      ADMIN_PROXY_BURST: ${ADMIN_PROXY_BURST:-6}
+    volumes: [./infra/nginx/http.conf.template:/templates/nginx.conf:ro]
+    ports: ['${BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:8080']
+    networks: [app]
+    depends_on:
+      api: {condition: service_healthy}
+      frontend: {condition: service_healthy}
+      admin: {condition: service_healthy}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp:size=256m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+
+networks:
+  private: {internal: true}
+  app:
+    ipam:
+      config: [{subnet: '${APP_SUBNET:-172.30.80.0/24}'}]
+volumes:
+  postgres: {name: '${COMPOSE_PROJECT_NAME:-refraction}_postgres'}
+  uploads: {name: '${COMPOSE_PROJECT_NAME:-refraction}_uploads'}
